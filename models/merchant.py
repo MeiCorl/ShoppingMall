@@ -11,11 +11,11 @@ class Merchant(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True, comment="商户id")
     merchant_name = Column(String(128), nullable=False, comment="商户名称")
-    merchant_type = Column(SmallInteger, default=1, comment="商户类型, 0: 管理商户  1:普通商户")
+    merchant_type = Column(SmallInteger, default=1, comment="商户类型, 0: 管理商户  1: 普通商户 2: 快递商户")
     logo = Column(String(256), default="", comment="商户logo图标")
     description = Column(String(1024), default="", comment="商户简介")
-    building = Column(String(2), nullable=False, comment="商户所在楼栋, A、B、C")
-    floor = Column(SmallInteger, nullable=False, comment="商户所在楼层, 1、2、3、4")
+    building = Column(String(2), default="", comment="商户所在楼栋, A、B、C")
+    floor = Column(SmallInteger, default=0, comment="商户所在楼层, 1、2、3、4")
     owner_name = Column(String(32), nullable=False, comment="户主名称")
     phone = Column(String(16), nullable=False, unique=True, comment="联系人手机号")
     password = Column(String(128), nullable=False, comment="登录密码")
@@ -27,9 +27,10 @@ class Merchant(Base):
         Index("building_floor_index", "building", "floor"),
     )
 
-    def __init__(self, merchant_name, logo, description, building, floor, owner_name, phone, password, create_time,
-                 update_time):
+    def __init__(self, merchant_name, merchant_type, logo, description, building, floor, owner_name, phone, password,
+                 create_time, update_time):
         self.merchant_name = merchant_name
+        self.merchant_type = merchant_type
         self.logo = logo
         self.description = description
         self.building = building
