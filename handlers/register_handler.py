@@ -33,6 +33,11 @@ class RegisterModel(BaseModel):
 @router.post("/register")
 @log_filter
 def register(request: RegisterModel, session: Session = Depends(create_session)):
+    """
+    注册商户 \n
+    :param request: 商户注册请求体\n
+    :return: 提交成功返回0
+    """
     ret_code = 0
     ret_data = None
 

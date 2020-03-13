@@ -17,6 +17,10 @@ router = APIRouter()
 @router.post("/logout")
 @log_filter
 def logout(response: Response, merchant_id: int = Depends(get_login_merchant)):
+    """
+    退出登录\n
+    :return:
+    """
     ret_code = 0
     ret_msg = "success"
     try:

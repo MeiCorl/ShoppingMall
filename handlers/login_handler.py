@@ -25,10 +25,8 @@ router = APIRouter()
 @log_filter
 def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(create_session)):
     """
-     用户登录，提交方式采用Form表单提交
-    :param session:
-    :param response:
-    :param form_data: 表单数据，包含username和password(本系统中username为手机号）
+     用户登录，提交方式采用Form表单提交\n
+    :param form_data: 表单数据，包含username和password(本系统中username为手机号）\n
     :return: 登录成功返回token和商户类型
     """
     ret_code = 0
@@ -42,6 +40,12 @@ def login(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), 
         if merchant is None:
             session.commit()
             return make_response(-1, f"用户({phone})不存在!")
+        if merchant.status == 0:
+            session.commit()
+            return make_response(-1, f"您的账号({phone})正在审批中, 请耐心等待审核或联系商城管理员审核!")
+        elif merchant.status == 2:
+            session.commit()
+            return make_response(-1, "sorry, 您的商户接入申请已被驳回, 具体原因请联系商城管理员!")
         if not security_util.verify_password(password, merchant.password):
             session.commit()
             return make_response(-1, "密码错误!")
