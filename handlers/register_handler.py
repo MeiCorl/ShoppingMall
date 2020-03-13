@@ -5,13 +5,15 @@
 import datetime
 
 import sqlalchemy.exc
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from handlers import make_response
 from decorators import log_filter
-from utils import validation_utils, security_util, db_util, logger
+from utils import validation_utils, security_util, logger
 from models.merchant import Merchant
+from utils.db_util import create_session
 
 router = APIRouter()
 
@@ -30,7 +32,7 @@ class RegisterModel(BaseModel):
 
 @router.post("/register")
 @log_filter
-def register(request: RegisterModel):
+def register(request: RegisterModel, session: Session = Depends(create_session)):
     ret_code = 0
     ret_data = None
 
@@ -47,7 +49,6 @@ def register(request: RegisterModel):
         return make_response(-1, "请选择正确的楼栋!")
 
     hashed_password = security_util.get_password_hash(request.password)
-    session = db_util.create_session()
     try:
         now = datetime.datetime.now()
         merchant = Merchant(request.merchant_name, request.merchant_type, request.logo, request.description,
@@ -65,6 +66,4 @@ def register(request: RegisterModel):
         logger.error(str(e))
         ret_code = -1
         ret_msg = str(e)
-    finally:
-        session.close()
     return make_response(ret_code, ret_msg, ret_data)

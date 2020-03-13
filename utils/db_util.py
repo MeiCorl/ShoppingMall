@@ -25,9 +25,11 @@ session_class = scoped_session(sessionmaker(bind=engine))  # 实例和engine绑�
 
 
 def create_session():
-    return session_class()
+    session = session_class()
+    yield session
+    session.close()
 
 
 # 创建库表
-from models.merchant import Merchant
+# from models.merchant import Merchant
 Base.metadata.create_all(bind=engine)  # 创建表结构

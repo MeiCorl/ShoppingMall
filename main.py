@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 import uvicorn
-from fastapi import FastAPI, Depends, Header, HTTPException
+
+from fastapi import FastAPI
 from fastapi.security import OAuth2PasswordBearer
 
 import config
-from handlers import register_handler, login_handler, admin_handler
+from handlers import register_handler, login_handler, logout_handler, admin_handler
 from utils import logger
 
 app = FastAPI(
@@ -16,15 +17,11 @@ app = FastAPI(
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
 
-def get_token_header(x_token: str = Header(...)):
-    if x_token != "fake-super-secret-token":
-        raise HTTPException(status_code=400, detail="X-Token header invalid")
-
-
 # 导入路由模块
 app.include_router(register_handler.router)
 app.include_router(login_handler.router)
-app.include_router(admin_handler.router, dependencies=[Depends(get_token_header)])
+app.include_router(logout_handler.router)
+app.include_router(admin_handler.router, prefix="/admin", tags=["admin"])
 
 if __name__ == "__main__":
     logger.info("----- App Start ----")

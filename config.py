@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-
 log_path = "logs/app.log"
 
 # 生产环境
@@ -16,6 +15,12 @@ db_config = {
     "user": "root",
     "passwd": "",
     "dbname": "shopping_mall"
+}
+
+redis_config = {
+    "host": "localhost",
+    "port": 6379,
+    "passwd": ""
 }
 
 app_config = {
