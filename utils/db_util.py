@@ -32,4 +32,7 @@ def create_session():
 
 # 创建库表
 # from models.merchant import Merchant
+# from models.deal import Deal
+# from models.evaluatation import Evaluation
+# from models.product import Product
 Base.metadata.create_all(bind=engine)  # 创建表结构

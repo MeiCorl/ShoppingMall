@@ -50,7 +50,7 @@ def verify_token(token):
 
 def get_login_merchant(x_token: str = Cookie(...)):
     """
-    获取当前登录用户id
+    从token获取当前登录用户id
     :param x_token:
     """
     # 校验登录token

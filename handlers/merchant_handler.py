@@ -1,0 +1,251 @@
+# -*- coding: utf-8 -*-
+"""
+商户模块
+"""
+import json
+from datetime import datetime
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
+from typing import List
+
+from consts import ProductStatusDesc, DealStatusDesc
+from utils import logger
+from decorators import log_filter
+from handlers import make_response
+from utils.json_encoder import JsonEncoder
+from utils.db_util import create_session
+from utils.security_util import get_login_merchant
+from utils.redis_util import redis_client
+from models.deal import Deal
+from models.evaluatation import Evaluation
+from models.product import Product
+
+router = APIRouter()
+
+
+class ProductModel(BaseModel):
+    id: int = Field(None, title="商品id, 新增商品是不传")
+    product_name: str = Field(..., title="商品名称", max_length=128)
+    product_cover: str = Field(..., title="商品封面图片地址", max_length=512)
+    product_desc: str = Field("", title="商品简介", max_length=512)
+    detail_pictures: List[str] = Field([], title="商品详情图片列表")
+    has_stock_limit: int = Field(1, title="商品是否有库存数量限制, 0: 没有, 1: 有， 默认有限制")
+    remain_stock: int = Field(0, title="商品剩余库存数量")
+    price: float = Field(..., title="商品单价")
+
+
+@router.get("/evaluation_list")
+def get_evaluation_list(page_no: int = Query(1, gt=-1), page_size: int = Query(20, gt=-1),
+                        merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+    """
+    获取我的评价列表 \n
+    :param page_no:  当前页码\n
+    :param page_size:  页面代销\n
+    :return:
+    """
+    ret_code = 0
+    ret_msg = "success"
+    ret_data = {
+        "total_amount": 0,
+        "evaluation_list": []
+    }
+    try:
+        evaluations = session.query(Evaluation).filter(Evaluation.merchant_id == merchant_id)
+        ret_data["total_amount"] = evaluations.count()
+        evaluations = evaluations.order_by(-Evaluation.create_time).offset((page_no - 1) * page_size).limit(page_size)
+        ret_data["evaluation_list"] = [evaluation.to_dict() for evaluation in evaluations]
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg, ret_data)
+
+
+@router.post("/add_product")
+@log_filter
+def add_product(product_info: ProductModel, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+    """
+    新增商品\n
+    :param product_info: 商品实体，参见ProductModel \n
+    :return: 成功返回商品id
+    """
+    ret_code = 0
+    ret_msg = "success"
+    ret_data = {}
+    try:
+        now = datetime.now()
+        product = Product(merchant_id, product_info.product_name, product_info.product_cover, product_info.product_desc,
+                          json.dumps(product_info.detail_pictures), product_info.has_stock_limit, product_info.remain_stock,
+                          product_info.price, now, now)
+        session.add(product)
+        session.commit()
+        logger.info(f"新增商品成功, product_id: {product.id}")
+
+        # 商品信息存入缓存
+        redis_product_key = f"products_of_merchant_{merchant_id}"
+        redis_client.hset(redis_product_key, product.id, json.dumps(product.to_dict(), cls=JsonEncoder))
+        logger.info("商品存入redis成功!")
+        ret_data["product_id"] = product.id
+    except Exception as e:
+        session.rollback()
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg, ret_data)
+
+
+@router.post("/modify_product")
+@log_filter
+def modify_product(product_info: ProductModel, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+    """
+    修改商品(只能修改商品名称、商品简介、商品封面图片地址、商品详情图片地址、商品剩余库存、商品价格)\n
+    :param product_info: 商品实体，参见ProductModel \n
+    :return: 成功返回商品id
+    """
+    ret_code = 0
+    ret_msg = "success"
+    ret_data = {}
+    try:
+        if product_info.id is None:
+            session.commit()
+            return make_response(-1, "商品id不能为空!")
+        product = session.query(Product).filter(Product.id == product_info.id).one_or_none()
+        if product is None:
+            session.commit()
+            return make_response(-1, f"商品({product_info.id})不存在!")
+        if product.merchant_id != merchant_id:
+            session.commit()
+            return make_response(-1, f"不允许删除他人账户下的商品!")
+        product.product_name = product_info.product_name
+        product.product_cover = product_info.product_cover
+        product.product_desc = product_info.product_desc
+        product.detail_pictures = json.dumps(product_info.detail_pictures)
+        product.has_stock_limit = product_info.has_stock_limit
+        product.remain_stock = product_info.remain_stock
+        product.price = product_info.price
+        product.update_time = datetime.now()
+
+        session.commit()
+        logger.info(f"商品信息修改成功, product_id: {product.id}")
+
+        # 商品信息存入缓存
+        redis_product_key = f"products_of_merchant_{merchant_id}"
+        redis_client.hset(redis_product_key, product.id, json.dumps(product.to_dict(), cls=JsonEncoder))
+        logger.info("更新redis成功!")
+        ret_data["product_id"] = product.id
+    except Exception as e:
+        session.rollback()
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg, ret_data)
+
+
+@router.get("/product_list")
+@log_filter
+def get_product_list(merchant_id: int = Depends(get_login_merchant)):
+    """
+    拉取本商户下全部商品列表\n
+    :return:
+    """
+    ret_code = 0
+    ret_msg = "success"
+    ret_data = {
+        "total_amount": 0,
+        "product_list": [],
+    }
+    # 从redis拉取本商户下全部商品信息
+    try:
+        redis_product_key = f"products_of_merchant_{merchant_id}"
+        products = redis_client.hgetall(redis_product_key)
+
+        total_amount = 0
+        product_list = []
+        for value in products.values():
+            total_amount += 1
+            product = json.loads(value)
+            product["status"] = ProductStatusDesc[product["status"]]
+            product_list.append(product)
+        ret_data["total_amount"] = len(products)
+        ret_data["product_list"] = product_list
+    except Exception as e:
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg, ret_data)
+
+
+@router.delete("/delete_product")
+@log_filter
+def delete_product(product_id: int, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+    """
+    删除商品! \n
+    :param product_id: 商品id \n
+    :return:
+    """
+    ret_code = 0
+    ret_msg = "success"
+    try:
+        redis_product_key = f"products_of_merchant_{merchant_id}"
+        product = json.loads(redis_client.hget(redis_product_key, product_id))
+        if product["merchant_id"] != merchant_id:
+            return make_response(-1, "仅能删除自己商户下的商品!")
+
+        session.query(Product).filter(Product.id == product_id).delete()
+        session.commit()
+
+        # 同时删除缓存
+        redis_client.hdel(redis_product_key, product_id)
+    except Exception as e:
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg)
+
+
+@router.get("/deal_list")
+@log_filter
+def get_deal_list(begin_time: datetime, end_time: datetime, deal_status: int = Query(None, gt=-1, lt=5),
+                  page_no: int = Query(1, gt=-1), page_size: int = Query(20, gt=-1),
+                  merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+    """
+    根据时间段及状态拉取商户下订单列表\n
+    :param begin_time: 开始时间\n
+    :param end_time: 结束时间\n
+    :param deal_status: 订单状态 0: 待支付  1: 待派送 2: 待上门领取 3: 派送中 4: 已完成， 不传则拉取全部\n
+    :param page_no: 当前页码（不传默认为1）\n
+    :param page_size: 页面大小（不传默认为20）\n
+    :return:
+    """
+    ret_code = 0
+    ret_msg = "success"
+    ret_data = {
+        "total_count": 0,
+        "deal_list": []
+    }
+    try:
+        if deal_status is None:
+            deals = session.query(Deal).filter(Deal.create_time.between(begin_time, end_time), Deal.merchant_id == merchant_id)
+        else:
+            deals = session.query(Deal).filter(Deal.create_time.between(begin_time, end_time), Deal.deal_status == deal_status,
+                                               Deal.merchant_id == merchant_id)
+        ret_data["total_count"] = deals.count()
+        deals = deals.order_by(-Deal.create_time).offset((page_no - 1) * page_size).limit(page_size)
+        deal_list = []
+        for deal in deals:
+            deal_info = deal.to_dict()
+            deal_info["need_delivery"] = "是" if deal_info["need_delivery"] == 1 else "否"
+            deal_info["deal_status"] = DealStatusDesc.get(deal_info["deal_status"])
+            deal_list.append(deal_info)
+        ret_data["deal_list"] = deal_list
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg, ret_data)
+
