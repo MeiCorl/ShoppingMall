@@ -2,7 +2,7 @@
 import time
 from functools import wraps
 
-from utils import logger
+from utils import app_logger as logger
 
 
 def log_filter(func):

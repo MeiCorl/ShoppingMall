@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from consts import DealStatusDesc
 from handlers import make_response
-from utils import logger
+from utils import app_logger as logger
 from utils.security_util import get_login_merchant
 from utils.db_util import create_session
 from utils.redis_util import redis_client

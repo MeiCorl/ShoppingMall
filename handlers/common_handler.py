@@ -17,7 +17,8 @@ from utils.json_encoder import JsonEncoder
 from handlers import make_response
 from models.merchant import Merchant
 from decorators import log_filter
-from utils import logger, security_util, validation_utils
+from utils import app_logger as logger
+from utils import security_util, validation_utils
 from utils.db_util import create_session
 from utils.security_util import get_login_merchant
 from consts import MerchantTypeDesc

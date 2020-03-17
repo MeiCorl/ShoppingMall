@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from typing import List
 
 from consts import ProductStatusDesc, DealStatusDesc
-from utils import logger
+from utils import app_logger as logger
 from decorators import log_filter
 from handlers import make_response
 from utils.json_encoder import JsonEncoder
@@ -144,6 +144,42 @@ def modify_product(product_info: ProductModel, merchant_id: int = Depends(get_lo
     return make_response(ret_code, ret_msg, ret_data)
 
 
+@router.put("/offline_product")
+def offline_product(product_id: int, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+    """
+    下架商品\n
+    :param product_id: 商品id\n
+    :return:
+    """
+    ret_code = 0
+    ret_msg = "success"
+    try:
+        redis_product_key = f"products_of_merchant_{merchant_id}"
+        product_info = redis_client.hget(redis_product_key, product_id)
+        if product_info is None:
+            session.commit()
+            return make_response(-1, "商品不存在!")
+        product = json.loads(product_info)
+        if product["merchant_id"] != merchant_id:
+            session.commit()
+            return make_response(-1, "仅能下架自己商户下的商品!")
+
+        # 更新缓存
+        product["status"] = 1
+        redis_client.hscan_iter(redis_product_key, product_id, json.dumps(product))
+
+        # 更新db
+        session.query(Product).filter(Product.id == product_id).update({
+            Product.status: 1
+        })
+        session.commit()
+    except Exception as e:
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg)
+
+
 @router.get("/product_list")
 @log_filter
 def get_product_list(merchant_id: int = Depends(get_login_merchant)):
@@ -190,15 +226,21 @@ def delete_product(product_id: int, merchant_id: int = Depends(get_login_merchan
     ret_msg = "success"
     try:
         redis_product_key = f"products_of_merchant_{merchant_id}"
-        product = json.loads(redis_client.hget(redis_product_key, product_id))
+        product_info = redis_client.hget(redis_product_key, product_id)
+        if product_info is None:
+            session.commit()
+            return make_response(-1, "商品不存在!")
+        product = json.loads(product_info)
         if product["merchant_id"] != merchant_id:
+            session.commit()
             return make_response(-1, "仅能删除自己商户下的商品!")
 
+        # 删除缓存
+        redis_client.hdel(redis_product_key, product_id)
+
+        # 删除db
         session.query(Product).filter(Product.id == product_id).delete()
         session.commit()
-
-        # 同时删除缓存
-        redis_client.hdel(redis_product_key, product_id)
     except Exception as e:
         logger.error(str(e))
         ret_code = -1

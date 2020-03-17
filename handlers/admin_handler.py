@@ -13,7 +13,7 @@ from decorators import log_filter
 from utils.redis_util import redis_client
 from utils.security_util import get_login_merchant
 from utils.json_encoder import JsonEncoder
-from utils import logger
+from utils import app_logger as logger
 from consts import MerchantTypeDesc, DealStatusDesc
 from handlers import make_response
 from utils.db_util import create_session
@@ -77,7 +77,7 @@ def get_merchant_list(page_no: int = Query(1, gt=-1), page_size: int = Query(20,
     return make_response(ret_code, ret_msg, ret_data)
 
 
-@router.get("/merchat_detail")
+@router.get("/merchant_detail")
 @log_filter
 def get_merchant_detail(target_merchant_id: int, merchant_id: int = Depends(get_login_merchant),
                         session: Session = Depends(create_session)):

@@ -10,7 +10,7 @@ from fastapi import Cookie, HTTPException
 from passlib.context import CryptContext
 
 from config import SECRET_KEY, ALGORITHM
-from utils import logger
+from utils import app_logger as logger
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
