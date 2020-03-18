@@ -16,6 +16,7 @@ import config
 from utils.json_encoder import JsonEncoder
 from handlers import make_response
 from models.merchant import Merchant
+from models.user import User
 from decorators import log_filter
 from utils import app_logger as logger
 from utils import security_util, validation_utils
@@ -181,3 +182,35 @@ def show_me(merchant_id: int = Depends(get_login_merchant)):
         ret_code = -1
         ret_msg = str(e)
     return make_response(ret_code, ret_msg, ret_data)
+
+
+@router.get("/user")
+def get_user_info(user_id: int, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+    """
+    查看用户信息(仅商户和管理员有权限)
+    :param user_id: 用户id
+    :return:
+    """
+    ret_code = 0
+    ret_msg = "success"
+    ret_data = {}
+
+    cur_merchant = json.loads(redis_client.hget("merchants", merchant_id))
+    if cur_merchant["merchant_type"] not in [0, 1]:
+        session.commit()
+        return make_response(-1, "权限不足!")
+
+    try:
+        user = session.query(User).filter(User.id == user_id).one_or_none()
+        if user is None:
+            session.commit()
+            return make_response(-1, "用户不存在!")
+        ret_data["user_info"] = user.to_dict()
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg, ret_data)
+

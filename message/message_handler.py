@@ -105,8 +105,12 @@ class MessageHandler(threading.Thread):
             self.unregister(cur_merchant_id)
 
     def callback(self, message):
-        # 订阅redis主题，读取小程序后端发来的消息并转发给具体商户
-        # 消息流动路径: 小程序用户WebSocket->Redis->商户WebSocket
+        """
+        订阅redis主题，读取小程序后端发来的消息并转发给具体商户
+        消息流动路径: 小程序用户WebSocket->Redis->商户WebSocket
+        :param message: redis事件消息
+        :return:
+        """
         logger.info(f"get a message from miniapp: {message}")
         if message["type"] not in ["message", "pmessage"]:
             return
@@ -117,7 +121,7 @@ class MessageHandler(threading.Thread):
 
         if self.is_online(target_merchant_id):
             websocket = self.USERS.get(target_merchant_id)
-            websocket.send(message)
+            asyncio.wait(websocket.send(message))
         else:
             # 商户不在线时，通过在redis中为每个商户维护一个接收队列来存储离线消息，待下次商户登录时获取(暂时不做持久化存储)
             redis_client.rpush(f"messages_for_merchant_{target_merchant_id}", message["data"])

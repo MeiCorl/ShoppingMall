@@ -35,4 +35,5 @@ def create_session():
 # from models.deal import Deal
 # from models.evaluatation import Evaluation
 # from models.product import Product
+# from models.user import User
 Base.metadata.create_all(bind=engine)  # 创建表结构
