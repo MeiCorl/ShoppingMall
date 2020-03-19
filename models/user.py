@@ -14,6 +14,7 @@ class User(Base):
     phone = Column(String(16), default="", comment="用户手机号")
     name = Column(String(64), default="", comment="用户名称")
     nick_name = Column(String(64), default="", comment="用户昵称")
+    head_img = Column(String(256), default="", comment="用户头像")
     address_list = Column(String(1024), default="[]", comment="收货地址列表")
     vip_level = Column(SmallInteger, default=0, comment="会员等级, 0表示不是会员")
     vip_score = Column(Integer, default=0, comment="会员积分")
