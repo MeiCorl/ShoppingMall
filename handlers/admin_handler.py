@@ -51,6 +51,7 @@ def get_merchant_list(page_no: int = Query(1, gt=-1), page_size: int = Query(20,
         merchants = merchants.order_by(-Merchant.create_time).offset((page_no - 1) * page_size).limit(page_size)
 
         # 查评价星级
+        # evaluation_stars 格式  total_num_of_stars*total_count(总星数*打星次数)
         evaluation_stars = redis_client.hmget("evaluation_stars", [merchant.id for merchant in merchants])
         merchant_list = []
         for i in range(merchants.count()):
