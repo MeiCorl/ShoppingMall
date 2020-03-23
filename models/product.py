@@ -18,7 +18,7 @@ class Product(Base):
     has_stock_limit = Column(SmallInteger, default=1, comment="商品是否有库存数量限制, 0: 没有, 1: 有， 默认有限制")
     init_stock = Column(Integer, default=0, comment="商品初始库存数量")
     remain_stock = Column(Integer, default=0, comment="商品剩余库存数量")
-    price = Column(Float, nullable=False, comment="商品单价")
+    price = Column(Float, nullable=False, comment="商品单价: 元")
     status = Column(SmallInteger, default=0, comment="商品状态, 0: 售卖中, 1: 已下架")
     create_time = Column(TIMESTAMP, comment="商品上架时间")
     update_time = Column(TIMESTAMP, comment="更新时间")

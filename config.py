@@ -23,6 +23,7 @@ app_config = {
     "reload": True,
     "log_level": "debug",
     "access_log": True,
+    "use_colors": True,
     "host": "127.0.0.1"
 }
 
