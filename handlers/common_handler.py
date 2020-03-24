@@ -170,12 +170,12 @@ def show_me(merchant_id: int = Depends(get_login_merchant)):
         merchant["merchant_type"] = MerchantTypeDesc.get(merchant["merchant_type"])
 
         # todo 从redis获取商户评分星级
-        evaluation_star = redis_client.hget("evaluation_stars", merchant["id"])
-        if evaluation_star is None:
+        stars = redis_client.hget("evaluation_stars", merchant["id"])
+        times = redis_client.hmget("evaluation_times", merchant["id"])
+        if stars is None:
             merchant["stars"] = 4   # 初始星级默认为4
         else:
-            stars, num_of_evaluations = evaluation_star.split("*")
-            merchant["stars"] = float(stars) / int(num_of_evaluations)
+            merchant["stars"] = float(stars) / int(times)
         ret_data["merchant_info"] = merchant
     except Exception as e:
         logger.error(str(e))

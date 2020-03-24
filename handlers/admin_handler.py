@@ -50,9 +50,9 @@ def get_merchant_list(page_no: int = Query(1, gt=-1), page_size: int = Query(20,
         ret_data["total_count"] = merchants.count()
         merchants = merchants.order_by(-Merchant.create_time).offset((page_no - 1) * page_size).limit(page_size)
 
-        # 查评价星级
-        # evaluation_stars 格式  total_num_of_stars*total_count(总星数*打星次数)
+        # 查评价星级 evaluation_stars存储商户得星总数  evaluation_times被评星次数
         evaluation_stars = redis_client.hmget("evaluation_stars", [merchant.id for merchant in merchants])
+        evaluation_times = redis_client.hmget("evaluation_times", [merchant.id for merchant in merchants])
         merchant_list = []
         for i in range(merchants.count()):
             merchant = merchants[i]
@@ -61,12 +61,12 @@ def get_merchant_list(page_no: int = Query(1, gt=-1), page_size: int = Query(20,
             merchant_detail.pop("status")
             merchant_detail["merchant_type"] = MerchantTypeDesc.get(merchant_detail["merchant_type"])
 
-            evaluation_star = evaluation_stars[i]
-            if evaluation_star is None:
+            stars = evaluation_stars[i]
+            times = evaluation_times[i]
+            if stars is None:
                 merchant_detail["stars"] = 4   # 初始星级默认为4
             else:
-                stars, num_of_evaluations = evaluation_star.split("*")
-                merchant_detail["stars"] = float(stars) / int(num_of_evaluations)
+                merchant_detail["stars"] = float(stars) / int(times)
             merchant_list.append(merchant_detail)
         ret_data["merchant_list"] = merchant_list
         session.commit()
@@ -105,12 +105,12 @@ def get_merchant_detail(target_merchant_id: int, merchant_id: int = Depends(get_
         merchant_detail["merchant_type"] = MerchantTypeDesc.get(merchant_detail["merchant_type"])
 
         # todo 从redis获取商户评分星级
-        evaluation_star = redis_client.hget("evaluation_stars", merchant.id)
-        if evaluation_star is None:
+        stars = redis_client.hget("evaluation_stars", merchant.id)
+        times = redis_client.hmget("evaluation_times", merchant.id)
+        if stars is None:
             merchant_detail["stars"] = 4   # 初始星级默认为4
         else:
-            stars, num_of_evaluations = evaluation_star.split("*")
-            merchant_detail["stars"] = float(stars) / int(num_of_evaluations)
+            merchant_detail["stars"] = float(stars) / int(times)
         ret_data["merchant_detail"] = merchant_detail
         session.commit()
     except Exception as e:
