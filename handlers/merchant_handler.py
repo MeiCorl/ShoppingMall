@@ -85,8 +85,11 @@ def add_product(product_info: ProductModel, merchant_id: int = Depends(get_login
         logger.info(f"新增商品成功, product_id: {product.id}")
 
         # 商品信息存入缓存
-        redis_product_key = f"products_of_merchant_{merchant_id}"
-        redis_client.hset(redis_product_key, product.id, json.dumps(product.to_dict(), cls=JsonEncoder))
+        redis_client.hset("products", product.id, json.dumps(product.to_dict(), cls=JsonEncoder))
+
+        # 将商品id保存至商户，便于根据商户id查询对应商品
+        redis_client.sadd(f"products_of_merchant_{merchant_id}", product.id)
+
         logger.info("商品存入redis成功!")
         ret_data["product_id"] = product.id
     except Exception as e:
@@ -118,7 +121,7 @@ def modify_product(product_info: ProductModel, merchant_id: int = Depends(get_lo
             return make_response(-1, f"商品({product_info.id})不存在!")
         if product.merchant_id != merchant_id:
             session.commit()
-            return make_response(-1, f"不允许删除他人账户下的商品!")
+            return make_response(-1, f"不允许修改他人账户下的商品!")
         product.product_name = product_info.product_name
         product.product_cover = product_info.product_cover
         product.product_desc = product_info.product_desc
@@ -131,9 +134,8 @@ def modify_product(product_info: ProductModel, merchant_id: int = Depends(get_lo
         session.commit()
         logger.info(f"商品信息修改成功, product_id: {product.id}")
 
-        # 商品信息存入缓存
-        redis_product_key = f"products_of_merchant_{merchant_id}"
-        redis_client.hset(redis_product_key, product.id, json.dumps(product.to_dict(), cls=JsonEncoder))
+        # 更新缓存
+        redis_client.hset("products", product.id, json.dumps(product.to_dict(), cls=JsonEncoder))
         logger.info("更新redis成功!")
         ret_data["product_id"] = product.id
     except Exception as e:
@@ -154,8 +156,7 @@ def offline_product(product_id: int, merchant_id: int = Depends(get_login_mercha
     ret_code = 0
     ret_msg = "success"
     try:
-        redis_product_key = f"products_of_merchant_{merchant_id}"
-        product_info = redis_client.hget(redis_product_key, product_id)
+        product_info = redis_client.hget("products", product_id)
         if product_info is None:
             session.commit()
             return make_response(-1, "商品不存在!")
@@ -166,7 +167,7 @@ def offline_product(product_id: int, merchant_id: int = Depends(get_login_mercha
 
         # 更新缓存
         product["status"] = 1
-        redis_client.hscan_iter(redis_product_key, product_id, json.dumps(product))
+        redis_client.hset("products", product_id, json.dumps(product))
 
         # 更新db
         session.query(Product).filter(Product.id == product_id).update({
@@ -195,8 +196,9 @@ def get_product_list(merchant_id: int = Depends(get_login_merchant)):
     }
     # 从redis拉取本商户下全部商品信息
     try:
-        redis_product_key = f"products_of_merchant_{merchant_id}"
-        products = redis_client.hgetall(redis_product_key)
+        product_ids = redis_client.smembers(f"products_of_merchant_{merchant_id}")
+
+        products = redis_client.hmget("products", product_ids)
 
         total_amount = 0
         product_list = []
@@ -225,8 +227,7 @@ def delete_product(product_id: int, merchant_id: int = Depends(get_login_merchan
     ret_code = 0
     ret_msg = "success"
     try:
-        redis_product_key = f"products_of_merchant_{merchant_id}"
-        product_info = redis_client.hget(redis_product_key, product_id)
+        product_info = redis_client.hget("products", product_id)
         if product_info is None:
             session.commit()
             return make_response(-1, "商品不存在!")
@@ -236,7 +237,8 @@ def delete_product(product_id: int, merchant_id: int = Depends(get_login_merchan
             return make_response(-1, "仅能删除自己商户下的商品!")
 
         # 删除缓存
-        redis_client.hdel(redis_product_key, product_id)
+        redis_client.hdel("products", product_id)
+        redis_client.srem(f"products_of_merchant_{merchant_id}", product_id)
 
         # 删除db
         session.query(Product).filter(Product.id == product_id).delete()
