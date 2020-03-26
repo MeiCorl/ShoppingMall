@@ -19,7 +19,7 @@ from handlers import make_response
 from utils.db_util import create_session
 from models.merchant import Merchant
 from models.deal import Deal
-from models.evaluatation import Evaluation
+from models.evaluation import Evaluation
 
 router = APIRouter()
 

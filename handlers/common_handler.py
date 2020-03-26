@@ -30,7 +30,7 @@ router = APIRouter()
 
 class RegisterModel(BaseModel):
     merchant_name: str = Field(..., title="商户名称", max_length=128)
-    merchant_type: int = Field(..., title="商户类型, 1: 普通商户 2: 快递商户")
+    merchant_type: int = Field(1, title="商户类型, 1: 普通商户 2: 快递商户")
     logo: str = Field("", title="商户logo, 普调商户需要传", max_length=256)
     description: str = Field("", title="商户简介, 普调商户需要传", max_length=1024)
     building: str = Field("", title="商户所在楼栋, 普调商户需要传", max_length=1)

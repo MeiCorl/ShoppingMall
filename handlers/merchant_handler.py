@@ -18,7 +18,7 @@ from utils.db_util import create_session
 from utils.security_util import get_login_merchant
 from utils.redis_util import redis_client
 from models.deal import Deal
-from models.evaluatation import Evaluation
+from models.evaluation import Evaluation
 from models.product import Product
 
 router = APIRouter()
