@@ -36,6 +36,7 @@ class ProductModel(BaseModel):
 
 
 @router.get("/evaluation_list")
+@log_filter
 def get_evaluation_list(page_no: int = Query(1, gt=-1), page_size: int = Query(20, gt=-1),
                         merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
     """
@@ -61,6 +62,20 @@ def get_evaluation_list(page_no: int = Query(1, gt=-1), page_size: int = Query(2
         logger.error(str(e))
         ret_code = -1
         ret_msg = str(e)
+    return make_response(ret_code, ret_msg, ret_data)
+
+
+@router.get("/product_tags")
+@log_filter
+def get_product_tags():
+    """
+    拉取商品分类标签
+    """
+    ret_code = 0
+    ret_msg = "success"
+    ret_data = {
+        "product_tags": ["水果", "食品", "生鲜", "数码", "电器", "洗护", "男装", "女装", "鞋靴", "母婴", "保健", "医药", "百货", "其它"]
+    }
     return make_response(ret_code, ret_msg, ret_data)
 
 
@@ -147,6 +162,7 @@ def modify_product(product_info: ProductModel, merchant_id: int = Depends(get_lo
 
 
 @router.put("/offline_product")
+@log_filter
 def offline_product(product_id: int, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
     """
     下架商品\n
