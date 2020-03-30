@@ -3,10 +3,15 @@
 消息即时通讯模块: 从商户WebSocket读取消息并发布到小程序后台订阅的Redis主题，以及从商户后台订阅的Redis主题读取消息并发送给指定商户
 定义通信消息体如下:
 {
-    "from": "发送方id",
-    "to": "接收方id",
-    "data_type": "消息数据类型, text、jpg、png", (暂时只支持文本及jpg、png格式图片数据),
-    "data_content": "消息数据内容",
+    "message_type": "消息类型， message: 普通消息   deal: 订单消息",
+    "from_id": "发送方id",
+    "from_name": "发送方名称",
+    "to_id": "接收方id",
+    "to_name": "接收方名称",
+    "body" : {
+        "type": "消息数据类型, text: 普通文本数据  jpg: jpg图片数据  png: png图片数据",
+        "content": "消息内容， 如果type为图片类型， 则传图片Base64字符串"
+    }
     "timestamp": "消息发送时间"
 }
 """
@@ -17,7 +22,7 @@ import websockets
 from utils import msg_logger as logger
 from utils.redis_util import redis_client
 from utils.security_util import verify_token
-from config import merchants_listener_topic, miniapp_listener_topic, socket_config
+from config import merchants_listener_topic, miniapp_listener_topic, merchants_message_queue, miniapp_message_queue, socket_config
 
 
 class MessageHandler(threading.Thread):
@@ -28,7 +33,7 @@ class MessageHandler(threading.Thread):
 
         # 订阅merchants_listener_topic
         self.redis_subscriber = redis_client.pubsub()
-        self.redis_subscriber.psubscribe(**{merchants_listener_topic: self.callback})
+        self.redis_subscriber.psubscribe(**{merchants_listener_topic: self.redis_listener})
 
     def run(self):
         # 重新设置事件循环为当前线程，否则get_event_loop会获取主线程事件循环
@@ -99,31 +104,38 @@ class MessageHandler(threading.Thread):
         # 处理socket输入
         try:
             async for message in websocket:
-                # 对于商户发来的消息 直接发往小程序后端即可
-                logger.info(f"get a message from merchant_{cur_merchant_id}: {message}")
-                redis_client.publish(miniapp_listener_topic, message)
+                """ 对于商户发来的消息 直接发往小程序后端即可 """
+                # 将消息写入小程序后端消费队列
+                redis_client.rpush(miniapp_message_queue, message)
+                # 通知小程序后端有新消息到达
+                redis_client.publish(miniapp_listener_topic, "message")
+                logger.info(f"get a message from merchant_{cur_merchant_id}: {message}, send status: success")
         finally:
             self.unregister(cur_merchant_id)
 
-    def callback(self, message):
+    def redis_listener(self, msg):
         """
         订阅redis主题，读取小程序后端发来的消息并转发给具体商户
         消息流动路径: 小程序用户WebSocket->Redis->商户WebSocket
-        :param message: redis事件消息
+        :param msg: redis事件消息
         :return:
         """
-        logger.info(f"get a message from miniapp: {message}")
-        if message["type"] not in ["message", "pmessage"]:
+        if msg["type"] not in ["message", "pmessage"]:
             return
-        msg = json.loads(message["data"])
+        # 从消费队列获取新消息
+        message = redis_client.lpop(merchants_message_queue)
+        if message is None:
+            return
+        logger.info(f"get a message from miniapp: {message}")
+        message_dict = json.loads(message)
 
         # 解析出消息要发往的商户
-        target_merchant_id = int(msg["to"])
+        target_merchant_id = int(message_dict["to_id"])
 
         if self.is_online(target_merchant_id):
             websocket = self.USERS.get(target_merchant_id)
             asyncio.wait(websocket.send(message))
         else:
             # 商户不在线时，通过在redis中为每个商户维护一个接收队列来存储离线消息，待下次商户登录时获取(暂时不做持久化存储)
-            redis_client.rpush(f"messages_for_merchant_{target_merchant_id}", message["data"])
+            redis_client.rpush(f"messages_for_merchant_{target_merchant_id}", message)
 

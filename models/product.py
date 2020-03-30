@@ -12,6 +12,7 @@ class Product(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True, comment="商品id")
     merchant_id = Column(Integer, index=True, nullable=False, comment="商品所属商户id")
     product_name = Column(String(128), nullable=False, comment="商品名称")
+    product_tag = Column(String(16), nullable=False, index=True, server_default="其它", comment="商品分类标签，如: 水果、食品、生鲜、数码、电器、洗护、男装、女装、鞋靴、母婴、保健、医药、百货、其它")
     product_cover = Column(String(512), nullable=False, comment="商品封面图片地址")
     product_desc = Column(String(512), server_default="", comment="商品简介")
     detail_pictures = Column(String(2048), server_default="[]", comment="商品详情图片列表")

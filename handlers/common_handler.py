@@ -40,6 +40,11 @@ class RegisterModel(BaseModel):
     password: str = Field(..., title="登录密码", min_length=8, max_length=16)
 
 
+class UpdatePasswordModel(BaseModel):
+    old_password: str = Field(..., title="原密码", min_length=8, max_length=16)
+    new_passwprd: str = Field(..., title="原密码", min_length=8, max_length=16)
+
+
 @router.post("/register")
 @log_filter
 def register(request: RegisterModel, session: Session = Depends(create_session)):
@@ -185,10 +190,11 @@ def show_me(merchant_id: int = Depends(get_login_merchant)):
 
 
 @router.get("/user")
-def get_user_info(user_id: int, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+@log_filter
+def get_user_info(openid: str, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
     """
     查看用户信息(仅商户和管理员有权限)
-    :param user_id: 用户id
+    :param openid: 用户微信openid
     :return:
     """
     ret_code = 0
@@ -201,7 +207,7 @@ def get_user_info(user_id: int, merchant_id: int = Depends(get_login_merchant), 
         return make_response(-1, "权限不足!")
 
     try:
-        user = session.query(User).filter(User.id == user_id).one_or_none()
+        user = session.query(User).filter(User.openid == openid).one_or_none()
         if user is None:
             session.commit()
             return make_response(-1, "用户不存在!")
@@ -214,3 +220,30 @@ def get_user_info(user_id: int, merchant_id: int = Depends(get_login_merchant), 
         ret_msg = str(e)
     return make_response(ret_code, ret_msg, ret_data)
 
+
+@router.post("/update_password")
+@log_filter
+def update_password(request: UpdatePasswordModel, response: Response, merchant_id: int = Depends(get_login_merchant),
+                    session: Session = Depends(create_session)):
+    ret_code = 0
+    ret_msg = "密码重置成功，请返回重新登录!"
+    try:
+        merchant = session.query(Merchant).filter(Merchant.id == merchant_id).one_or_none()
+        if merchant is None:
+            session.commit()
+            return make_response(-1, f"用户({merchant_id})不存在!")
+        if not security_util.verify_password(request.old_password, merchant.password):
+            session.commit()
+            return make_response(-1, "密码更新失败，原密码错误!")
+        # 更新密码
+        merchant.password = security_util.get_password_hash(request.new_passwprd)
+        redis_client.hset("merchants", merchant.id, json.dumps(merchant.to_dict(), cls=JsonEncoder))
+        # 清空当前登录态
+        response.delete_cookie("x_token")
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg)

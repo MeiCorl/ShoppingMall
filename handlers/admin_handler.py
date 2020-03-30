@@ -3,11 +3,13 @@
 管理员模块
 """
 import json
+from typing import List
 from datetime import datetime
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 
 from decorators import log_filter
 from utils.redis_util import redis_client
@@ -391,3 +393,48 @@ def complete_deal(deal_no: int, merchant_id: int = Depends(get_login_merchant), 
         ret_code = -1
         ret_msg = str(e)
     return make_response(ret_code, ret_msg)
+
+
+class AdvertismentModel(BaseModel):
+    advertis_list: List[str] = []
+
+
+@router.post("/set_advertisments")
+@log_filter
+def set_advertisments(request: AdvertismentModel, merchant_id: int = Depends(get_login_merchant)):
+    ret_code = 0
+    ret_msg = "success"
+    try:
+        cur_merchant = json.loads(redis_client.hget("merchants", merchant_id))
+        if cur_merchant["merchant_type"] != 0:
+            return make_response(-1, "权限不足!")
+        redis_client.delete("advertisments")
+        redis_client.rpush("advertisments", request.advertis_list)
+    except Exception as e:
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg)
+
+
+@router.post("/get_advertisments")
+@log_filter
+def get_advertisments(merchant_id: int = Depends(get_login_merchant)):
+    ret_code = 0
+    ret_msg = "success"
+    ret_data = {
+        "advertis_list": []
+    }
+    try:
+        cur_merchant = json.loads(redis_client.hget("merchants", merchant_id))
+        if cur_merchant["merchant_type"] != 0:
+            return make_response(-1, "权限不足!")
+        ret_data["advertis_list"] = redis_client.lrange("advertisments", 0, -1)
+    except Exception as e:
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg, ret_data)
+
+
+
