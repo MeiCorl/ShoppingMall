@@ -141,6 +141,7 @@ def delete_merchant(target_merchant_id: int, merchant_id: int = Depends(get_logi
         merchant = session.query(Merchant).filter(Merchant.id == target_merchant_id)
         session.delete(merchant)
         redis_client.hdel("merchants", merchant.id)
+        # todo 删除商户下商品、商户对应评价信息
         session.commit()
     except Exception as e:
         session.rollback()

@@ -92,8 +92,9 @@ class MessageHandler(threading.Thread):
         if len(offline_messages) > 0:
             logger.info(f"get offline messages: {offline_messages}")
             redis_client.ltrim(f"messages_for_merchant_{cur_merchant_id}", len(offline_messages), -1)
-            for offline_message in offline_messages:
-                await websocket.send(offline_message)
+            # for offline_message in offline_messages:
+            #     await websocket.send(offline_message)
+            await asyncio.wait([websocket.send(offline_message) for offline_message in offline_messages])
 
         # 处理socket输入
         try:
