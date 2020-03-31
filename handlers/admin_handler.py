@@ -9,7 +9,7 @@ from datetime import datetime
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from decorators import log_filter
 from utils.redis_util import redis_client
@@ -22,8 +22,17 @@ from utils.db_util import create_session
 from models.merchant import Merchant
 from models.deal import Deal
 from models.evaluation import Evaluation
+from models.activity import Activity
 
 router = APIRouter()
+
+
+class ActivityModel(BaseModel):
+    id: int = Field(None, title="活动id, 新建活动时不传")
+    act_name: str = Field(..., title="活动名称", max_length=128)
+    act_cover: str = Field(..., title="活动封面", max_length=512)
+    begin_time: datetime = Field(..., title="活动开始时间")
+    end_time: datetime = Field(..., title="活动结婚时时间")
 
 
 @router.get("/merchant_list")
@@ -376,8 +385,8 @@ def get_merchant_evaluations(target_merchant_id: int, page_no: int = Query(1, gt
 @log_filter
 def complete_deal(deal_no: int, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
     """
-    完成订单
-    :param deal_no: 订单号
+    完成订单\n
+    :param deal_no: 订单号\n
     :return:
     """
     ret_code = 0
@@ -402,6 +411,10 @@ class AdvertismentModel(BaseModel):
 @router.post("/set_advertisments")
 @log_filter
 def set_advertisments(request: AdvertismentModel, merchant_id: int = Depends(get_login_merchant)):
+    """
+    设置广告位图片\n
+    :return:
+    """
     ret_code = 0
     ret_msg = "success"
     try:
@@ -420,6 +433,10 @@ def set_advertisments(request: AdvertismentModel, merchant_id: int = Depends(get
 @router.post("/get_advertisments")
 @log_filter
 def get_advertisments(merchant_id: int = Depends(get_login_merchant)):
+    """
+    拉取广告位图片\n
+    :return:
+    """
     ret_code = 0
     ret_msg = "success"
     ret_data = {
@@ -436,5 +453,127 @@ def get_advertisments(merchant_id: int = Depends(get_login_merchant)):
         ret_msg = str(e)
     return make_response(ret_code, ret_msg, ret_data)
 
+
+@router.post("/add_activity")
+@log_filter
+def add_activity(activity: ActivityModel, merchant_id: int = Depends(get_login_merchant),
+                 session: Session = Depends(create_session)):
+    """
+    新建营销活动\n
+    :param activity: 活动信息\n
+    :return:
+    """
+    ret_code = 0
+    ret_msg = "success"
+    try:
+        cur_merchant = json.loads(redis_client.hget("merchants", merchant_id))
+        if cur_merchant["merchant_type"] != 0:
+            session.commit()
+            return make_response(-1, "权限不足!")
+
+        now = datetime.now()
+        act = Activity(activity.act_name, activity.act_cover, activity.begin_time, activity.end_time, now, now)
+        session.add(act)
+        session.commit()
+        logger.info(f"新建营销活动成功，活动id: {act.id}")
+
+        # 活动存入redis并添加商品折扣表
+        activity_key = f"activity_{act.id}"
+        discount_key = f"discount_of_activity_{act.id}"
+        expire_time = (activity.end_time - now).seconds
+        pipe = redis_client.pipeline(transaction=True)
+        pipe.set(activity_key, json.dumps(act.to_dict()), ex=expire_time)
+        # 创建一个空的商品折扣表, 插入一条空数据占位符
+        pipe.hset(discount_key, "", "")
+        pipe.expire(discount_key)
+        pipe.execute()
+        logger.info("活动redis信息初始化成功!")
+    except Exception as e:
+        session.rollback()
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg)
+
+
+@router.delete("/delete_activity")
+@log_filter
+def delete_activity(activity_id: int, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+    """
+    删除营销活动活动\n
+    :param activity_id: 活动id\n
+    :return:
+    """
+    ret_code = 0
+    ret_msg = "success"
+
+    try:
+        cur_merchant = json.loads(redis_client.hget("merchants", merchant_id))
+        if cur_merchant["merchant_type"] != 0:
+            session.commit()
+            return make_response(-1, "权限不足!")
+
+        session.query(Activity).filter(Activity.id == activity_id).delete()
+        # 删除缓存活动信息、商品折扣表
+        activity_key = f"activity_{activity_id}"
+        discount_key = f"discount_of_activity_{activity_id}"
+        pipe = redis_client.pipeline(transaction=True)
+        pipe.delete(activity_key)
+        pipe.delete(discount_key)
+        pipe.execute()
+        logger.info("删除活动成功!")
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg)
+
+
+@router.post("/modify_activity")
+@log_filter
+def modify_activity(activity: ActivityModel, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+    """
+    修改活动信息\n
+    :param activity: 活动信息\n
+    :return:
+    """
+    ret_code = 0
+    ret_msg = "success"
+    try:
+        now = datetime.now()
+        cur_merchant = json.loads(redis_client.hget("merchants", merchant_id))
+        if cur_merchant["merchant_type"] != 0:
+            session.commit()
+            return make_response(-1, "权限不足!")
+
+        act = session.query(Activity).filter(Activity.id == activity.id).one_or_none()
+        if act is None:
+            session.commit()
+            return make_response(-1, "活动不存在!")
+        if act.begin_time < now:
+            session.commit()
+            return make_response(-1, "活动已启动，不允许修改!")
+
+        # 更新缓存
+        activity_key = f"activity_{act.id}"
+        discount_key = f"discount_of_activity_{act.id}"
+        expire_time = (activity.end_time - now).seconds
+        redis_client.set(activity_key, json.dumps(act.to_dict()), ex=expire_time)
+        redis_client.expire(discount_key, expire_time)
+
+        act.act_name = activity.act_name
+        act.act_cover = activity.act_cover
+        act.begin_time = activity.begin_time
+        act.end_time = activity.end_time
+        act.update_time = now
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg)
 
 

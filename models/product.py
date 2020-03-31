@@ -24,10 +24,11 @@ class Product(Base):
     create_time = Column(TIMESTAMP, comment="商品上架时间")
     update_time = Column(TIMESTAMP, comment="更新时间")
 
-    def __init__(self, merchant_id, product_name, product_cover, product_desc, detail_pictures, has_stock_limit,
-                 init_stock, price, create_time, update_time):
+    def __init__(self, merchant_id, product_name, product_tag, product_cover, product_desc, detail_pictures,
+                 has_stock_limit, init_stock, price, create_time, update_time):
         self.merchant_id = merchant_id
         self.product_name = product_name
+        self.product_tag = product_tag
         self.product_cover = product_cover
         self.product_desc = product_desc
         self.detail_pictures = detail_pictures

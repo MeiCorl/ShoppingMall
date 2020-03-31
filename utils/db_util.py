@@ -15,7 +15,7 @@ db_url = "mysql+pymysql://{}:{}@{}:{}/{}?charset=utf8".format(db_config["user"],
                                                               db_config["host"],
                                                               db_config["port"], db_config["dbname"])
 # 创建实例
-engine = create_engine(db_url, convert_unicode=True, poolclass=QueuePool, pool_size=100, echo=False, pool_recycle=3600)
+engine = create_engine(db_url, convert_unicode=True, poolclass=QueuePool, pool_size=8, echo=False, pool_recycle=3600)
 
 Base = declarative_base()  # 生成orm基类
 Base.to_dict = to_dict
@@ -36,4 +36,5 @@ def create_session():
 # from models.evaluation import Evaluation
 # from models.product import Product
 # from models.user import User
+# from models.activity import Activity
 # Base.metadata.create_all(bind=engine)  # 创建表结构

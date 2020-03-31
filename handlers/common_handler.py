@@ -14,16 +14,15 @@ from sqlalchemy.orm import Session
 
 import config
 from utils.json_encoder import JsonEncoder
-from handlers import make_response
-from models.merchant import Merchant
-from models.user import User
-from decorators import log_filter
-from utils import app_logger as logger
-from utils import security_util, validation_utils
-from utils.db_util import create_session
-from utils.security_util import get_login_merchant
 from consts import MerchantTypeDesc
 from utils.redis_util import redis_client
+from handlers import make_response
+from decorators import log_filter
+from utils import security_util, validation_utils, app_logger as logger
+from utils.db_util import create_session
+from utils.security_util import get_login_merchant
+from models.merchant import Merchant
+from models.user import User
 
 router = APIRouter()
 
@@ -163,7 +162,7 @@ def logout(response: Response):
 def show_me(merchant_id: int = Depends(get_login_merchant)):
     """
     获取我的账号信息\n
-    :return: 商户基本信息
+    :return: 商户基本信息\n
     """
     ret_code = 0
     ret_msg = "success"
@@ -193,8 +192,8 @@ def show_me(merchant_id: int = Depends(get_login_merchant)):
 @log_filter
 def get_user_info(openid: str, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
     """
-    查看用户信息(仅商户和管理员有权限)
-    :param openid: 用户微信openid
+    查看用户信息(仅商户和管理员有权限)\n
+    :param openid: 用户微信openid\n
     :return:
     """
     ret_code = 0
@@ -225,6 +224,11 @@ def get_user_info(openid: str, merchant_id: int = Depends(get_login_merchant), s
 @log_filter
 def update_password(request: UpdatePasswordModel, response: Response, merchant_id: int = Depends(get_login_merchant),
                     session: Session = Depends(create_session)):
+    """
+    修改用户密码\n
+    :param request: 请求实体\n
+    :return:
+    """
     ret_code = 0
     ret_msg = "密码重置成功，请返回重新登录!"
     try:
