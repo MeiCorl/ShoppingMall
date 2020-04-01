@@ -485,7 +485,7 @@ def add_activity(activity: ActivityModel, merchant_id: int = Depends(get_login_m
         pipe.set(activity_key, json.dumps(act.to_dict()), ex=expire_time)
         # 创建一个空的商品折扣表, 插入一条空数据占位符
         pipe.hset(discount_key, "", "")
-        pipe.expire(discount_key)
+        pipe.expire(discount_key, expire_time)
         pipe.execute()
         logger.info("活动redis信息初始化成功!")
     except Exception as e:
