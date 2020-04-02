@@ -32,6 +32,15 @@ socket_config = {
     "port": 6789
 }
 
+cos_config = {
+    "app_id": "1254255210",
+    "secret_id": "AKID0TzOclypz09Z4fpuS5o3QFczKar9rIPj",
+    "secret_key": "abWGoPueXtI2QnR1niVEuV7e7dJvVCrg",
+    "region": 'ap-guangzhou',
+    "bucket": "test2bucket",
+    "cos_token": "huqwgdaujd"
+}
+
 SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24

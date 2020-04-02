@@ -18,7 +18,7 @@ from consts import MerchantTypeDesc
 from utils.redis_util import redis_client
 from handlers import make_response
 from decorators import log_filter
-from utils import security_util, validation_utils, app_logger as logger
+from utils import security_util, validation_utils, app_logger as logger, cos_util
 from utils.db_util import create_session
 from utils.security_util import get_login_merchant
 from models.merchant import Merchant
@@ -251,3 +251,26 @@ def update_password(request: UpdatePasswordModel, response: Response, merchant_i
         ret_code = -1
         ret_msg = str(e)
     return make_response(ret_code, ret_msg)
+
+
+@router.get("/get_cos_sign")
+@log_filter
+def get_cos_sign(path: str, method: str = "POST", headers: str = None, params: str = None):
+    """
+    获取cos上传临时签名 \n
+    :param path: 上传路径 \n
+    :param method: 请求方法 默认 POST \n
+    :param headers:
+    :param params:
+    :return:
+    """
+    ret_code = 0
+    ret_msg = "success"
+    ret_data = {}
+    try:
+        ret_data["sign"] = cos_util.calculate_sign(path, method, headers, params)
+    except Exception as e:
+        logger.error(str(e))
+        ret_code = -1
+        ret_msg = str(e)
+    return make_response(ret_code, ret_msg, ret_data)
