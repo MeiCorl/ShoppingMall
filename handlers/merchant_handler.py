@@ -392,6 +392,8 @@ def get_activity_products(activity_id: int, merchant_id: int = Depends(get_login
 
             # 查询商户信息
             merchants = redis_client.hgetall("merchants")
+            for k, v in merchants.items():
+                merchants[k] = json.loads(v)
 
             product_list = []
             for value in products:
@@ -402,7 +404,7 @@ def get_activity_products(activity_id: int, merchant_id: int = Depends(get_login
                         "product_name": product["product_name"],
                         "product_cover": product["product_cover"],
                         "discount": discount_table.get(str(product["id"])),
-                        "merchant_name": merchants.get(product["merchant_id"]).get("merchant_name")
+                        "merchant_name": merchants.get(str(product["merchant_id"])).get("merchant_name")
                     })
             ret_data["product_list"] = product_list
     except Exception as e:

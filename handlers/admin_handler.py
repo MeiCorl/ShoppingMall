@@ -482,7 +482,7 @@ def add_activity(activity: ActivityModel, merchant_id: int = Depends(get_login_m
         discount_key = f"discount_of_activity_{act.id}"
         expire_time = (activity.end_time - now).seconds
         pipe = redis_client.pipeline(transaction=True)
-        pipe.set(activity_key, json.dumps(act.to_dict()), ex=expire_time)
+        pipe.set(activity_key, json.dumps(act.to_dict(), cls=JsonEncoder), ex=expire_time)
         # 创建一个空的商品折扣表, 插入一条空数据占位符
         pipe.hset(discount_key, "", "")
         pipe.expire(discount_key, expire_time)
@@ -560,7 +560,7 @@ def modify_activity(activity: ActivityModel, merchant_id: int = Depends(get_logi
         activity_key = f"activity_{act.id}"
         discount_key = f"discount_of_activity_{act.id}"
         expire_time = (activity.end_time - now).seconds
-        redis_client.set(activity_key, json.dumps(act.to_dict()), ex=expire_time)
+        redis_client.set(activity_key, json.dumps(act.to_dict(), cls=JsonEncoder), ex=expire_time)
         redis_client.expire(discount_key, expire_time)
 
         act.act_name = activity.act_name
