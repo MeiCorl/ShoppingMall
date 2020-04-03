@@ -274,3 +274,4 @@ def get_cos_sign(path: str, method: str = "POST", headers: str = None, params: s
         ret_code = -1
         ret_msg = str(e)
     return make_response(ret_code, ret_msg, ret_data)
+

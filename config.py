@@ -22,7 +22,7 @@ app_config = {
     "backlog": 100,
     "reload": True,
     "log_level": "debug",
-    "access_log": True,
+    "access_log": False,
     "use_colors": True,
     "host": "127.0.0.1"
 }
