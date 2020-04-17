@@ -75,7 +75,7 @@ def get_merchant_list(page_no: int = Query(1, gt=-1), page_size: int = Query(20,
             stars = evaluation_stars[i]
             times = evaluation_times[i]
             if stars is None:
-                merchant_detail["stars"] = 4   # 初始星级默认为4
+                merchant_detail["stars"] = 4  # 初始星级默认为4
             else:
                 merchant_detail["stars"] = float(stars) / int(times)
             merchant_list.append(merchant_detail)
@@ -119,7 +119,7 @@ def get_merchant_detail(target_merchant_id: int, merchant_id: int = Depends(get_
         stars = redis_client.hget("evaluation_stars", merchant.id)
         times = redis_client.hmget("evaluation_times", merchant.id)
         if stars is None:
-            merchant_detail["stars"] = 4   # 初始星级默认为4
+            merchant_detail["stars"] = 4  # 初始星级默认为4
         else:
             merchant_detail["stars"] = float(stars) / int(times)
         ret_data["merchant_detail"] = merchant_detail
@@ -383,7 +383,8 @@ def get_merchant_evaluations(target_merchant_id: int, page_no: int = Query(1, gt
 
 @router.put("/complete_deal")
 @log_filter
-def complete_deal(deal_no: int, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+def complete_deal(deal_no: int, merchant_id: int = Depends(get_login_merchant),
+                  session: Session = Depends(create_session)):
     """
     完成订单\n
     :param deal_no: 订单号\n
@@ -474,8 +475,6 @@ def add_activity(activity: ActivityModel, merchant_id: int = Depends(get_login_m
         now = datetime.now()
         act = Activity(activity.act_name, activity.act_cover, activity.begin_time, activity.end_time, now, now)
         session.add(act)
-        session.commit()
-        logger.info(f"新建营销活动成功，活动id: {act.id}")
 
         # 活动存入redis并添加商品折扣表
         activity_key = f"activity_{act.id}"
@@ -488,6 +487,9 @@ def add_activity(activity: ActivityModel, merchant_id: int = Depends(get_login_m
         pipe.expire(discount_key, expire_time)
         pipe.execute()
         logger.info("活动redis信息初始化成功!")
+
+        session.commit()
+        logger.info(f"新建营销活动成功，活动id: {act.id}")
     except Exception as e:
         session.rollback()
         logger.error(str(e))
@@ -498,7 +500,8 @@ def add_activity(activity: ActivityModel, merchant_id: int = Depends(get_login_m
 
 @router.delete("/delete_activity")
 @log_filter
-def delete_activity(activity_id: int, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+def delete_activity(activity_id: int, merchant_id: int = Depends(get_login_merchant),
+                    session: Session = Depends(create_session)):
     """
     删除营销活动活动\n
     :param activity_id: 活动id\n
@@ -533,7 +536,8 @@ def delete_activity(activity_id: int, merchant_id: int = Depends(get_login_merch
 
 @router.post("/modify_activity")
 @log_filter
-def modify_activity(activity: ActivityModel, merchant_id: int = Depends(get_login_merchant), session: Session = Depends(create_session)):
+def modify_activity(activity: ActivityModel, merchant_id: int = Depends(get_login_merchant),
+                    session: Session = Depends(create_session)):
     """
     修改活动信息\n
     :param activity: 活动信息\n
@@ -575,5 +579,3 @@ def modify_activity(activity: ActivityModel, merchant_id: int = Depends(get_logi
         ret_code = -1
         ret_msg = str(e)
     return make_response(ret_code, ret_msg)
-
-

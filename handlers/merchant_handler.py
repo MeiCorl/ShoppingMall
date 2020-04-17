@@ -105,16 +105,16 @@ def add_product(product_info: ProductModel, merchant_id: int = Depends(get_login
                           product_info.has_stock_limit,
                           product_info.remain_stock, product_info.price, now, now)
         session.add(product)
-        session.commit()
-        logger.info(f"新增商品成功, product_id: {product.id}")
 
         # 商品信息存入缓存
         redis_client.hset("products", product.id, json.dumps(product.to_dict(), cls=JsonEncoder))
 
         # 将商品id保存至商户，便于根据商户id查询对应商品
         redis_client.sadd(f"products_of_merchant_{merchant_id}", product.id)
-
         logger.info("商品存入redis成功!")
+
+        session.commit()
+        logger.info(f"新增商品成功, product_id: {product.id}")
         ret_data["product_id"] = product.id
     except Exception as e:
         session.rollback()
@@ -157,12 +157,12 @@ def modify_product(product_info: ProductModel, merchant_id: int = Depends(get_lo
         product.price = product_info.price
         product.update_time = datetime.now()
 
-        session.commit()
-        logger.info(f"商品信息修改成功, product_id: {product.id}")
-
         # 更新缓存
         redis_client.hset("products", product.id, json.dumps(product.to_dict(), cls=JsonEncoder))
         logger.info("更新redis成功!")
+
+        session.commit()
+        logger.info(f"商品信息修改成功, product_id: {product.id}")
         ret_data["product_id"] = product.id
     except Exception as e:
         session.rollback()
@@ -427,16 +427,38 @@ def add_products_to_activity(actvity_product: ActivityProductModel, merchant_id:
     try:
         # 查询活动信息
         activity_key = f"activity_{actvity_product.activity_id}"
-        activity = redis_client.get(activity_key)
-        if activity is None:
+        activity_info = redis_client.get(activity_key)
+        if activity_info is None:
             return make_response(-1, "活动不存在或已结束!")
+        activity = json.loads(activity_info)
 
-        # 将商品id添加至活动折扣表
-        discount_key = f"discount_of_activity_{actvity_product.activity_id}"
+        # 检查操作合法性(只能操作自己商户下的商品)
+        cur_merchant = json.loads(redis_client.hget("merchants", merchant_id))
+        if cur_merchant["merchant_type"] != 1:
+            return make_response(-1, "权限不足, 仅普通商户能执行此操作!")
+        product_ids = actvity_product.product_discount_map.keys()
         pipe = redis_client.pipeline(transaction=False)
+        for product_id in product_ids:
+            pipe.hget("products", product_id)
+        product_infos = pipe.execute()
+        for product_info in product_infos:
+            if product_info is None:
+                return make_response(-1, "请确认商品都存在!")
+            product = json.loads(product_info)
+            if int(product.get("merchant_id")) != merchant_id:
+                return make_response(-1, "非法操作, 仅能操作自己商户下的商品!")
+
+        # 将商品折扣信息添加至活动折扣表, 并建立活动商品与活动的映射关系
+        discount_key = f"discount_of_activity_{actvity_product.activity_id}"
+        act_endtime = datetime.strptime(activity.get("end_time"), "%Y-%y-%d %H:%M:%S")
+        now = datetime.now()
+        expire_time = (act_endtime - now).seconds
+        pipe = redis_client.pipeline(transaction=True)
         for product_id, discount in actvity_product.product_discount_map.items():
             pipe.hset(discount_key, product_id, discount)
+            pipe.set(f"activity_of_product_{product_id}", activity.get("id"), ex=expire_time)
         pipe.execute()
+
         logger.info("新增活动商品成功!")
     except Exception as e:
         logger.error(str(e))

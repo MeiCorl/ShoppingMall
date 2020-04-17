@@ -10,6 +10,7 @@ class Deal(Base):
     __tablename__ = "t_deal_info"
 
     deal_no = Column(BigInteger, primary_key=True, autoincrement=True, comment="订单号")
+    deal_type = Column(SmallInteger, server_default=text('1'), comment="订单类型, 0: 父订单  1: 子订单")
     merchant_id = Column(Integer, nullable=False, comment="订单所属商户id")
     origin_money = Column(Float, server_default=text('0'), comment="订单折扣前总金额")
     money = Column(Float, server_default=text('0'), comment="订单折后总金额")
@@ -19,6 +20,7 @@ class Deal(Base):
     creator_openid = Column(String(32), index=True, nullable=False, comment="订单创建者openid")
     creator_phone = Column(String(16), server_default="", comment="联系人手机号")
     content = Column(String(4096), server_default="[]", comment="订单内容")
+    sub_deal_list = Column(String(256), server_default="", comment="子订单列表, 父订单才有")
     address = Column(String(128), nullable=False, comment="收货地址")
     create_time = Column(TIMESTAMP, comment="订单创建时间")
     pay_time = Column(TIMESTAMP, comment="订单支付时间")
