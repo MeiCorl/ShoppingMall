@@ -3,7 +3,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.security import OAuth2PasswordBearer
 from starlette.staticfiles import StaticFiles
-
+from asgi_request_id import RequestIDMiddleware
 import config
 from handlers import common_handler, admin_handler, merchant_handler, express_handler
 from utils import app_logger as logger
@@ -14,12 +14,21 @@ app = FastAPI(
     description="小程序购物商城",
     version="1.0.0"
 )
+
+# 为每个请求分配一个request id
+app.add_middleware(
+    RequestIDMiddleware,
+    incoming_request_id_header="request_id",
+)
+
+# 挂载静态文件目录
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# 消息处理handler
 msg_handler = MessageHandler("WebSocket Server")
 
+# 登录管理
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
-
 
 # # 导入路由模块
 app.include_router(common_handler.router, tags=["公共模块"])

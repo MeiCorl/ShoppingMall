@@ -175,7 +175,7 @@ def show_me(merchant_id: int = Depends(get_login_merchant)):
 
         # todo 从redis获取商户评分星级
         stars = redis_client.hget("evaluation_stars", merchant["id"])
-        times = redis_client.hmget("evaluation_times", merchant["id"])
+        times = redis_client.hget("evaluation_times", merchant["id"])
         if stars is None:
             merchant["stars"] = 4   # 初始星级默认为4
         else:
