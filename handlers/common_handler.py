@@ -282,7 +282,7 @@ def get_cos_sign(path: str, method: str = "POST", headers: str = None, params: s
 @router.get("/test")
 @log_filter
 def test(name: str):
-    logger.debug(f"request_id={get_request_id()} log_msg=Hello {name}, welcome!")
+    logger.debug(f"Hello {name}, welcome!")
     time.sleep(2)
-    logger.info(f"request_id={get_request_id()} log_msg=goodbye!")
+    logger.info(f"goodbye!")
     return {"ret_code": 0, "ret_msg": "success", "ret_data": {"name": name}}

@@ -8,25 +8,24 @@ from config import app_log_path, msg_log_path
 from asgi_request_id import get_request_id
 
 
-def process(func):
-    """
-    自定义日志处理, 往日志中输出额外参数字段(这里为request id)
-    """
-    @wraps(func)
-    def wrapper(msg, *args, **kwargs):
-        kwargs["extra"] = {
-            # 当前请求id
-            "request_id": get_request_id(),
-            # 获取调用方模块文件名
-            "caller_name": os.path.basename(inspect.stack()[1][1]),   # sys._getframe(1).f_code.co_filename,
-            # 获取被调用方法被调用时所处代码行数
-            "caller_no": inspect.stack()[1][2]      # sys._getframe(1).f_lineno
-        }
-        func(msg, *args, **kwargs)
-    return wrapper
-
-
 class MyLogger:
+    def process(func):
+        """
+        自定义日志处理, 往日志中输出额外参数字段(这里为request id)
+        """
+        @wraps(func)
+        def wrapper(self, msg, *args, **kwargs):
+            kwargs["extra"] = {
+                # 当前请求id
+                "request_id": get_request_id(),
+                # 获取调用方模块文件名
+                "caller_name": os.path.basename(inspect.stack()[1][1]),   # sys._getframe(1).f_code.co_filename,
+                # 获取被调用方法被调用时所处代码行数
+                "caller_no": inspect.stack()[1][2]      # sys._getframe(1).f_lineno
+            }
+            func(self, msg, *args, **kwargs)
+        return wrapper
+
     def __init__(self, name):
         self.logger = logging.getLogger(name)
 
@@ -55,7 +54,7 @@ class MyLogger:
 
 # 定义handler的输出格式(新增自定义的request id)
 # formatter = logging.Formatter("%(asctime)s %(request_id)s %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
-formatter = logging.Formatter("%(asctime)s %(caller_name)s[line:%(caller_no)d] - %(levelname)s: %(message)s")
+formatter = logging.Formatter("%(asctime)s %(request_id)s %(caller_name)s[line:%(caller_no)d] - %(levelname)s: %(message)s")
 
 # Web应用日志
 app_logger = MyLogger("App Logger")
