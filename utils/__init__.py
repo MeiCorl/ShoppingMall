@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import os
+import inspect
 import logging
 from functools import wraps
 from logging.handlers import TimedRotatingFileHandler
@@ -12,7 +14,14 @@ def process(func):
     """
     @wraps(func)
     def wrapper(msg, *args, **kwargs):
-        kwargs["extra"] = {"request_id": get_request_id()}
+        kwargs["extra"] = {
+            # 当前请求id
+            "request_id": get_request_id(),
+            # 获取调用方模块文件名
+            "caller_name": os.path.basename(inspect.stack()[1][1]),   # sys._getframe(1).f_code.co_filename,
+            # 获取被调用方法被调用时所处代码行数
+            "caller_no": inspect.stack()[1][2]      # sys._getframe(1).f_lineno
+        }
         func(msg, *args, **kwargs)
     return wrapper
 
@@ -45,7 +54,8 @@ class MyLogger:
 
 
 # 定义handler的输出格式(新增自定义的request id)
-formatter = logging.Formatter("%(asctime)s %(request_id)s %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
+# formatter = logging.Formatter("%(asctime)s %(request_id)s %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
+formatter = logging.Formatter("%(asctime)s %(caller_name)s[line:%(caller_no)d] - %(levelname)s: %(message)s")
 
 # Web应用日志
 app_logger = MyLogger("App Logger")

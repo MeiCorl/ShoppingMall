@@ -4,6 +4,8 @@
 """
 import json
 import datetime
+import time
+
 import sqlalchemy.exc
 from datetime import timedelta
 from fastapi import APIRouter, Depends
@@ -23,7 +25,7 @@ from utils.db_util import create_session
 from utils.security_util import get_login_merchant
 from models.merchant import Merchant
 from models.user import User
-
+from asgi_request_id import get_request_id
 router = APIRouter()
 
 
@@ -77,6 +79,7 @@ def register(request: RegisterModel, session: Session = Depends(create_session))
         session.commit()
         ret_msg = "申请已提交，请耐心等待审核结果!"
     except sqlalchemy.exc.IntegrityError as e:
+        session.rollback()
         logger.error(f"重复注册: {str(e)}")
         ret_code = -1
         ret_msg = "请勿重复注册!"
@@ -275,3 +278,11 @@ def get_cos_sign(path: str, method: str = "POST", headers: str = None, params: s
         ret_msg = str(e)
     return make_response(ret_code, ret_msg, ret_data)
 
+
+@router.get("/test")
+@log_filter
+def test(name: str):
+    logger.debug(f"request_id={get_request_id()} log_msg=Hello {name}, welcome!")
+    time.sleep(2)
+    logger.info(f"request_id={get_request_id()} log_msg=goodbye!")
+    return {"ret_code": 0, "ret_msg": "success", "ret_data": {"name": name}}
