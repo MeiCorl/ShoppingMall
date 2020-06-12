@@ -15,13 +15,22 @@ class MyLogger:
         """
         @wraps(func)
         def wrapper(self, msg, *args, **kwargs):
+            # 获取调用方所在栈帧(第2帧，数组下标为1)
+            frame = inspect.stack()[1]
+
+            # 获取调用方所文件名，这里只取文件名，不带路径
+            file_name = os.path.basename(frame[1])
+
+            # 获取代码行数
+            file_no = frame[2]
+
             kwargs["extra"] = {
                 # 当前请求id
                 "request_id": get_request_id(),
                 # 获取调用方模块文件名
-                "caller_name": os.path.basename(inspect.stack()[1][1]),   # sys._getframe(1).f_code.co_filename,
+                "file_name": file_name,   # sys._getframe(1).f_code.co_filename,
                 # 获取被调用方法被调用时所处代码行数
-                "caller_no": inspect.stack()[1][2]      # sys._getframe(1).f_lineno
+                "file_no": file_no      # sys._getframe(1).f_lineno
             }
             func(self, msg, *args, **kwargs)
         return wrapper
@@ -54,7 +63,7 @@ class MyLogger:
 
 # 定义handler的输出格式(新增自定义的request id)
 # formatter = logging.Formatter("%(asctime)s %(request_id)s %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
-formatter = logging.Formatter("%(asctime)s %(request_id)s %(caller_name)s[line:%(caller_no)d] - %(levelname)s: %(message)s")
+formatter = logging.Formatter("%(asctime)s %(request_id)s %(file_name)s[line:%(file_no)d] - %(levelname)s: %(message)s")
 
 # Web应用日志
 app_logger = MyLogger("App Logger")
