@@ -105,8 +105,10 @@ def add_product(product_info: ProductModel, merchant_id: int = Depends(get_login
                           product_info.has_stock_limit,
                           product_info.remain_stock, product_info.price, now, now)
         session.add(product)
+        session.flush()
 
         # 商品信息存入缓存
+        logger.info(f"redis prduct_info: f{product.to_dict()}")
         redis_client.hset("products", product.id, json.dumps(product.to_dict(), cls=JsonEncoder))
 
         # 将商品id保存至商户，便于根据商户id查询对应商品

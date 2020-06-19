@@ -25,7 +25,7 @@ from utils.db_util import create_session
 from utils.security_util import get_login_merchant
 from models.merchant import Merchant
 from models.user import User
-from asgi_request_id import get_request_id
+
 router = APIRouter()
 
 
@@ -277,12 +277,3 @@ def get_cos_sign(path: str, method: str = "POST", headers: str = None, params: s
         ret_code = -1
         ret_msg = str(e)
     return make_response(ret_code, ret_msg, ret_data)
-
-
-@router.get("/test")
-@log_filter
-def test(name: str):
-    logger.debug(f"Hello {name}, welcome!")
-    time.sleep(2)
-    logger.info(f"goodbye!")
-    return {"ret_code": 0, "ret_msg": "success", "ret_data": {"name": name}}
